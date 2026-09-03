@@ -15,7 +15,7 @@ inline float hsum_avx2(__m256 v) {
     return _mm_cvtss_f32(final);
 }
 
-// Optimized values for My PC Intel Core i5-7300U (4 core) L1 is 128KB (32KB per core) / L2 512KB (256KB per core)
+// Optimized values for My PC Intel Core i5 7300U (4 core) L1 is 128KB (32KB per core) / L2 512KB (256KB per core)
 constexpr int BM = 64;
 constexpr int BN = 64;
 constexpr int BK = 256;
