@@ -1,18 +1,11 @@
 // matmul_optimized.cpp  STAGE 3: PUT IT ALL TOGETHER
-//
-// This is the graded function AND the kernel that gets injected into llama.cpp. Combine
-// everything you have learned across the whole assignment  loop reordering, register
-// blocking and unrolling (Task 1 / Stage 1 here), cache tiling and software prefetch
-// (Stage 2)  and TUNE it to be as fast as you can. Your speedup over matmul_naive determines
-// your score (see the tier table the harness prints), and this same function will power a
-// real LLM inference via `make llama-demo`.
 
 
 #include <immintrin.h>
 #include <algorithm>
 #include "matmul.h"
 
-// Horizontal sum helper for 256 bit AVX2 registers
+
 inline float hsum_avx2(__m256 v) {
     __m128 vlow  = _mm256_castps256_ps128(v);
     __m128 vhigh = _mm256_extractf128_ps(v, 1);
@@ -23,7 +16,7 @@ inline float hsum_avx2(__m256 v) {
     return _mm_cvtss_f32(final);
 }
 
-// for My PC Intel Core i5 7300U L2 Cache (256 KB per core)
+// Tuned for Intel Core i5-7300U L2 Cache (256 KB)
 constexpr int BM = 64;
 constexpr int BN = 64;
 constexpr int BK = 256;
@@ -38,13 +31,13 @@ void matmul_optimized(const float* A, const float* B, float* C,
         for (int j0 = 0; j0 < N; j0 += BN) {
             int j_max = std::min(j0 + BN, N);
 
-            // Register Tiled Micro Kernel (2x4 Blocks)
+            // Register-Tiled Micro-Kernel (2x4 Blocks)
             int i = i0;
             for (; i <= i_max - 2; i += 2) {
                 int j = j0;
                 for (; j <= j_max - 4; j += 4) {
 
-                    // YMM accumulators held in registers across all K tiles
+          
                     __m256 c00 = _mm256_setzero_ps();
                     __m256 c01 = _mm256_setzero_ps();
                     __m256 c02 = _mm256_setzero_ps();
@@ -63,14 +56,14 @@ void matmul_optimized(const float* A, const float* B, float* C,
 
                     int p = 0;
 
-                    // K Cache-Blocking
+              
                     for (int k0 = 0; k0 < K; k0 += BK) {
                         int k_max = std::min(k0 + BK, K);
 
                         p = k0;
-                        // 2x Unrolled Inner Loop (16 floats / 64 bytes per iteration)
+                   
                         for (; p <= k_max - 16; p += 16) {
-                            // Prefetch 2 cache lines (32 floats = 128 bytes) ahead
+             
                             _mm_prefetch((const char*)(a0_ptr + p + 32), _MM_HINT_T0);
                             _mm_prefetch((const char*)(a1_ptr + p + 32), _MM_HINT_T0);
                             _mm_prefetch((const char*)(b0_ptr + p + 32), _MM_HINT_T0);
@@ -78,7 +71,7 @@ void matmul_optimized(const float* A, const float* B, float* C,
                             _mm_prefetch((const char*)(b2_ptr + p + 32), _MM_HINT_T0);
                             _mm_prefetch((const char*)(b3_ptr + p + 32), _MM_HINT_T0);
 
-                            // First 8 floats 
+         
                             __m256 a0_0 = _mm256_loadu_ps(a0_ptr + p);
                             __m256 a1_0 = _mm256_loadu_ps(a1_ptr + p);
                             __m256 b0_0 = _mm256_loadu_ps(b0_ptr + p);
@@ -96,7 +89,7 @@ void matmul_optimized(const float* A, const float* B, float* C,
                             c12 = _mm256_fmadd_ps(a1_0, b2_0, c12);
                             c13 = _mm256_fmadd_ps(a1_0, b3_0, c13);
 
-                            // Second 8 floats 
+                
                             __m256 a0_1 = _mm256_loadu_ps(a0_ptr + p + 8);
                             __m256 a1_1 = _mm256_loadu_ps(a1_ptr + p + 8);
                             __m256 b0_1 = _mm256_loadu_ps(b0_ptr + p + 8);
@@ -115,7 +108,7 @@ void matmul_optimized(const float* A, const float* B, float* C,
                             c13 = _mm256_fmadd_ps(a1_1, b3_1, c13);
                         }
 
-                        // Single 8 float SIMD residual loop
+                   
                         for (; p <= k_max - 8; p += 8) {
                             __m256 a0 = _mm256_loadu_ps(a0_ptr + p);
                             __m256 a1 = _mm256_loadu_ps(a1_ptr + p);
@@ -136,7 +129,7 @@ void matmul_optimized(const float* A, const float* B, float* C,
                         }
                     }
 
-                    // Deferred Horizontal Reduction (executed once per 2x4 block output)
+              
                     float acc00 = hsum_avx2(c00);
                     float acc01 = hsum_avx2(c01);
                     float acc02 = hsum_avx2(c02);
@@ -147,7 +140,7 @@ void matmul_optimized(const float* A, const float* B, float* C,
                     float acc12 = hsum_avx2(c12);
                     float acc13 = hsum_avx2(c13);
 
-                    // Scalar loop for remaining non vectorized floats
+             
                     for (; p < K; ++p) {
                         float a0_v = a0_ptr[p], a1_v = a1_ptr[p];
                         acc00 += a0_v * b0_ptr[p];
@@ -173,7 +166,7 @@ void matmul_optimized(const float* A, const float* B, float* C,
                     C[static_cast<long>(i + 1) * ldc + j + 3] = acc13;
                 }
 
-                // N boundary fringe
+                // boundary fringe
                 for (; j < j_max; ++j) {
                     float acc0 = 0.0f, acc1 = 0.0f;
                     const float* a0_ptr = A + static_cast<long>(i) * lda;
@@ -189,7 +182,7 @@ void matmul_optimized(const float* A, const float* B, float* C,
                 }
             }
 
-            // M boundary fringe
+            // boundary fringe
             for (; i < i_max; ++i) {
                 for (int j = j0; j < j_max; ++j) {
                     float acc = 0.0f;
