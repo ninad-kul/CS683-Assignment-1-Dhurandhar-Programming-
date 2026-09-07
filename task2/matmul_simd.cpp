@@ -3,9 +3,9 @@
 #include <immintrin.h>
 #include "matmul.h"
 
-// function to horizontally sum 8 float AVX2 register into 1 float
+
 inline float hsum_avx2(__m256 v) {
-    // split 256 bit vector into two 128 bit vectors and add them
+
     __m128 vlow  = _mm256_castps256_ps128(v);
     __m128 vhigh = _mm256_extractf128_ps(v, 1);
     __m128 sum   = _mm_add_ps(vlow, vhigh);
@@ -30,7 +30,7 @@ void matmul_simd(const float* A, const float* B, float* C,
         int j = 0;
         for (; j <= N - 4; j += 4) {
             
-            // Initialize 2x4 tile accumulators to zero
+
             __m256 c00 = _mm256_setzero_ps();
             __m256 c01 = _mm256_setzero_ps();
             __m256 c02 = _mm256_setzero_ps();
@@ -40,7 +40,7 @@ void matmul_simd(const float* A, const float* B, float* C,
             __m256 c12 = _mm256_setzero_ps();
             __m256 c13 = _mm256_setzero_ps();
 
-            // Pointers to the start of the 2 rows of A and 4 rows (columns) of B
+
             const float* a0_ptr = A + static_cast<long>(i) * lda;
             const float* a1_ptr = A + static_cast<long>(i + 1) * lda;
             const float* b0_ptr = B + static_cast<long>(j) * ldb;
@@ -49,19 +49,19 @@ void matmul_simd(const float* A, const float* B, float* C,
             const float* b3_ptr = B + static_cast<long>(j + 3) * ldb;
 
             int p = 0;
-            // 8 wide FMA loop over K
+     
             for (; p <= K - 8; p += 8) {
-                // Load 8 elements from the two rows of A
+          
                 __m256 a0 = _mm256_loadu_ps(a0_ptr + p);
                 __m256 a1 = _mm256_loadu_ps(a1_ptr + p);
                 
-                // Load 8 elements from the four rows of B
+           
                 __m256 b0 = _mm256_loadu_ps(b0_ptr + p);
                 __m256 b1 = _mm256_loadu_ps(b1_ptr + p);
                 __m256 b2 = _mm256_loadu_ps(b2_ptr + p);
                 __m256 b3 = _mm256_loadu_ps(b3_ptr + p);
 
-                // Accumulate dot products using FMA (a * b + c)
+
                 c00 = _mm256_fmadd_ps(a0, b0, c00);
                 c01 = _mm256_fmadd_ps(a0, b1, c01);
                 c02 = _mm256_fmadd_ps(a0, b2, c02);
@@ -73,7 +73,7 @@ void matmul_simd(const float* A, const float* B, float* C,
                 c13 = _mm256_fmadd_ps(a1, b3, c13);
             }
             
-            // Horizontally sum 8 wide SIMD registers to scalar partial sums
+ 
             float acc00 = hsum_avx2(c00);
             float acc01 = hsum_avx2(c01);
             float acc02 = hsum_avx2(c02);
@@ -84,7 +84,7 @@ void matmul_simd(const float* A, const float* B, float* C,
             float acc12 = hsum_avx2(c12);
             float acc13 = hsum_avx2(c13);
 
-            // Cleanup loop for the K dimension (safety if K is not a multiple of 8)
+
             for (; p < K; ++p) {
                 float a0_v = a0_ptr[p];
                 float a1_v = a1_ptr[p];
@@ -116,7 +116,7 @@ void matmul_simd(const float* A, const float* B, float* C,
             C[static_cast<long>(i + 1) * ldc + j + 3] = acc13;
         }
 
-        // safe edges if N is not a multiple of 4
+        // when N is not a multiple of 4
         for (; j < N; ++j) {
             float acc0 = 0.0f;
             float acc1 = 0.0f;
@@ -149,7 +149,7 @@ void matmul_simd(const float* A, const float* B, float* C,
         }
     }
     
-    // safe edges when M is not a multiple of 2
+    // when M is not a multiple of 2
     for (; i < M; ++i) {
         for (int j = 0; j < N; ++j) {
             float acc = 0.0f;
