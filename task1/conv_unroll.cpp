@@ -10,7 +10,7 @@ void conv_unroll(const float* in, float* out, const float* ker, int H, int W, in
         float* out_row = &out[y * W];
         int x = 0;
 
-        // Unrolling - Processing 4 adjacent pixels concurrently
+    
         for (; x <= W - 4; x += 4) {
             float sum0 = 0.0f;
             float sum1 = 0.0f;
@@ -36,7 +36,7 @@ void conv_unroll(const float* in, float* out, const float* ker, int H, int W, in
             out_row[x + 3] = sum3;
         }
 
-        // cleanup loop for remaining edge pixels
+
         for (; x < W; ++x) {
             float sum = 0.0f;
             for (int ky = 0; ky < K; ++ky) {
