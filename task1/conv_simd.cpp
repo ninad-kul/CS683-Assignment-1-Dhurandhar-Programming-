@@ -5,7 +5,7 @@
 
 void conv_simd(const float* in, float* out, const float* ker, int H, int W, int K) {
     int pad = K / 2;
-    int stride = W + 2 * pad; // True stride of the zero-padded halo buffer
+    int stride = W + 2 * pad; 
 
     for (int y = 0; y < H; ++y) {
         for (int x = 0; x < W; x += 8) {
